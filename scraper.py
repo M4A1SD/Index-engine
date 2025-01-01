@@ -83,8 +83,8 @@ def scrape_and_count_words(url, target_word):
 
 # Example usage
 if __name__ == "__main__":
-    url = 'https://en.wikipedia.org/wiki/Bird'
-    word = 'birds'
+    url = 'https://azure.microsoft.com/en-us/products/virtual-machines/spot/'
+    word = 'australia'
     
     result = scrape_and_count_words(url, word)
     

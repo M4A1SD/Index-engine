@@ -11,7 +11,7 @@ def null_database():
         cred = credentials.Certificate("serviceAccountKey.json")
         firebase_admin.initialize_app(cred, {
             'databaseURL': DATABASE_URL
-        })
+        })  
         
         # Get reference to root of database
         ref = db.reference('/')

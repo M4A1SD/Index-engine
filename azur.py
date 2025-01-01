@@ -20,8 +20,6 @@ To anyone working with the index, the structure is:
 
 This message may or may not have been written while I was druink
 """
-!pip install firebase
-!pip install requests beautifulsoup4 nltk
 
 """
 Plan: scrape ms azure's allowed pages
@@ -83,15 +81,13 @@ class AzureSearchEngine:
     return self.stemmer.stem(word)
 
   def is_link_in_pages(self, link):
-    normalized_link = self.normalize_url(link)
+    # Remove trailing slash if present
+    normalized_link = link.rstrip('/')
     for page in self.pages:
-      if self.normalize_url(page['url']) == normalized_link:
-        return False
+        # Compare normalized URLs
+        if page['url'].rstrip('/') == normalized_link:
+            return False
     return True
-
-  def normalize_url(self, url):
-    """Remove trailing slash from URL to avoid duplicates"""
-    return url.rstrip('/')
 
   def fetch_azure_pages(self):
     try:
@@ -99,15 +95,18 @@ class AzureSearchEngine:
       response.raise_for_status()
       soup = BeautifulSoup(response.text, 'html.parser') # parse html from hompage
       links = soup.find_all('a') # Get all links from anchor tags
+      visited_urls = set()
       for i, link in enumerate(links):
         url = link['href']
-        # iterate through all the links we found on the homepage
-        if not url.startswith('http'):
-          url = self.base_url + url.lstrip('/')
-        
         # Normalize URL by removing trailing slash
-        url = self.normalize_url(url)
-        
+        normalized_url = url.rstrip('/')
+        if normalized_url in visited_urls:
+          continue
+        visited_urls.add(normalized_url)
+        # iterate through all the links we found on the homepage, add all those that are still in ms azure's site
+        if not url.startswith('http'): # I assume that if the link doesn't start with http then it means it stays on the site (relative links)
+          url=self.base_url + url.lstrip('/') # Why do we add microsoft azure's base url and what's url.lstrip?
+        #grab the content for each url we find
         if self.robots_checker.is_in_site(url) and self.robots_checker.is_allowed(url):
           page_content = self.fetch_page_content(url)
         else:
@@ -125,9 +124,6 @@ class AzureSearchEngine:
     except Exception as e:
       print(f"Error fetching pages: {str(e)}")
       return False
-
-  def remove_duplicates(self):
-    print("For now we'll work with duplicates")
 
   def fetch_page_content(self, url): # Fetches a page's content as string from a given url
     try:
@@ -198,16 +194,16 @@ class IndexService:
             if word not in self.index:
                 self.index[word] = {}
                 self.index[word]['count'] = 1
-                # How do I save the number of occurances a word has in a specific page?
-                # Create a dictionary named docs, inside have {docid:'idwadwdaw-awdawda-awdwa55',count:12}
                 self.index[word]['docs'] = {}
                 self.index[word]['docs'][self.documents[doc_id]['url']] = 1
+
             elif self.documents[doc_id]['url'] not in self.index[word]['docs']:
                 self.index[word]['docs'][self.documents[doc_id]['url']] = 1
                 self.index[word]['count'] += 1
-            else:
+
+            elif self.documents[doc_id]['url'] in self.index[word]['docs']:
               self.index[word]['count'] += 1
-              self.index[word]['docs'][self.documents[doc_id]['url']] +=1 # need to check if it's the word's first time in the doc itself and not first time in the site
+              self.index[word]['docs'][self.documents[doc_id]['url']] += 1 # need to check if it's the word's first time in the doc itself and not first time in the site
 
         return self.documents[doc_id]
 
@@ -233,6 +229,7 @@ class DatabaseService:
     self.FBconn = firebase.FirebaseApplication(self.db_url, None)
     self.IndexService = IndexService()
     self.chunkCount = 0
+
   def sort_index(self):
     for term in self.IndexService.index:
       self.IndexService.index[term]['docs'] = dict(sorted(self.IndexService.index[term]['docs'].items(), key=lambda x: x[1], reverse=True))
@@ -262,24 +259,9 @@ class DatabaseService:
     self.sort_index()
     for term in self.IndexService.index:
       self.FBconn.put('/Index/',term,json.dumps(self.IndexService.index[term]))
-      #print(f"Uploaded term {term}")
-    """Upload the index to the database"""
-    """
-    try:
-      chunk_size = 800
-      for i in range(0,len(self.IndexService.index),chunk_size):
-        chunk = dict(list(self.IndexService.index.items())[i:i+chunk_size])
-        self.FBconn.put('/Index/',f'chunk_{i//chunk_size}',json.dumps(chunk))
-        print(f"uploaded chunk #{i//chunk_size}")
-        time.sleep(0.5)
-        self.chunkCount+=1
-      """
-      #self.FBconn.put('/Index/','inverted_index',json.dumps(self.IndexService.index))
-      #print("Index uploaded to database.")
-    """
-    except Exception as e:
-        print(f"Error uploading index: {e}")
-    """
+      if term == 'australia':
+        print(f"{term}:{self.IndexService.index[term]}")
+
   def download_index(self):
     """Download the index from the database"""
     i = 0
