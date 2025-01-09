@@ -58,7 +58,17 @@ def run_manager():
     # Function to refresh the table's HTML content
     def refresh_html(selected_word):
         clear_output(wait=True)
-        display(dropdown)  # Redisplay the dropdown
+        
+        # Display add term form
+        display(HTML("<h3>Add a term to index</h3>"))
+        display(new_term_text)
+        display(new_link_text)
+        display(new_count_text)
+        display(add_term_btn)
+        
+        display(HTML("<h3>Edit existing terms</h3>"))
+        display(dropdown)
+        
         data = terms[selected_word]
         data = json.loads(data)
 
@@ -159,6 +169,83 @@ def run_manager():
         selcted_term = change['new']
         refresh_html(selected_word)
 
+    # Add new form components for adding terms
+    new_term_text = widgets.Text(
+        value="",
+        placeholder="Enter new term",
+        description="New Term:",
+        disabled=False
+    )
+    
+    new_link_text = widgets.Text(
+        value="",
+        placeholder="https://example.com/",
+        description="DocID:",
+        disabled=False
+    )
+    
+    new_count_text = widgets.IntText(
+        value=1,
+        description="Count:",
+        disabled=False
+    )
+    
+    add_term_btn = widgets.Button(
+        description="Add Term",
+        disabled=False,
+        button_style='success',
+        icon='plus'
+    )
+
+    # Function to handle adding a new term
+    def on_add_term_btn_click(event):
+        new_term = new_term_text.value.strip()
+        new_link = new_link_text.value.strip()
+        new_count = new_count_text.value
+        
+        if not all([new_term, new_link, new_count]):
+            display(HTML("<p style='color: red;'>All fields are required!</p>"))
+            return
+            
+        try:
+            # If term exists, update its DocIDs
+            if new_term in terms:
+                term_data = json.loads(terms[new_term])
+                term_data['DocIDs'][new_link] = new_count
+                terms[new_term] = json.dumps(term_data)
+               
+            else:
+                # Create new term entry
+                new_term_data = {
+                    "count": new_count,
+                    "term": new_term,
+                    "DocIDs": {
+                        new_link: new_count
+                    }
+                    
+
+                }
+                terms[new_term] = json.dumps(new_term_data)
+                
+            # Update dropdown options
+            dropdown.options = list(terms.keys())
+             # also update the firebase index. index index will have new url and count
+            FBconn.put('/Index/', new_term, terms[new_term])
+            
+            # Clear form
+            new_term_text.value = ""
+            new_link_text.value = ""
+            new_count_text.value = 1
+            
+            # Refresh display
+            refresh_html(dropdown.value)
+            display(HTML("<p style='color: green;'>Term added successfully!</p>"))
+            
+        except Exception as e:
+            display(HTML(f"<p style='color: red;'>Error adding term: {e}</p>"))
+
+    # Register the add term button callback
+    add_term_btn.on_click(on_add_term_btn_click)
 
     # Register the callbacks with the frontend
     from google.colab import output

@@ -29,3 +29,4 @@ var/
 venv/
 ENV/ 
 wolf.json
+searchByOtherGuy.py
