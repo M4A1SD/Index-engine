@@ -165,6 +165,16 @@ class IndexService:
     """
     def __init__(self):
         self.documents = {}
+        """
+                    self.documents looks like:
+
+            '123e4567-e89b-12d3-a456-426614174000': {
+                'id': '123e4567-e89b-12d3-a456-426614174000',
+                'url': 'https://azure.microsoft.com/page1',
+                'content': 'sample stemmed content here',
+            }
+
+        """
         self.index = {}
         self.AzureSearchEngine = AzureSearchEngine()
         self.doc_word_count = {}
@@ -188,19 +198,28 @@ class IndexService:
         """
         for page in self.AzureSearchEngine.pages:
           self.add_document(page)
+          """
+          {
+              '123e4567-e89b-12d3-a456-426614174000': {
+                  'id': '123e4567-e89b-12d3-a456-426614174000',  # Unique UUID
+                  'url': 'https://azure.microsoft.com/page1',
+                  'content': 'sample stemmed content here'
+              }
+          }
+          """
         return True
 
     # Add a document to the index
     def add_document(self, doc_data):
         """
         Add a document to the index.
-
+        
         This function assigns a unique ID to the document, stores it, and updates the
         inverted index with the words from the document.
-
+        
         Args:
           doc_data (dict): A dictionary containing the document's data (id, url, content).
-
+        
         Returns:
           dict: The document data with its unique ID.
         """
@@ -243,6 +262,7 @@ class IndexService:
                # If the word is not in the index, add it as a new entry
                 self.index[word] = {}
                 self.index[word]['count'] = 1 # Initialize the total count of this word
+                self.index[word]['term'] = word # Add the term itself to the stracture
                 self.index[word]['DocIDs'] = {}
                 # Add the current document's URL with a count of 1 for this word
                 self.index[word]['DocIDs'][self.documents[doc_id]['url']] = 1
@@ -287,8 +307,8 @@ class DatabaseService:
 
   def upload_doc_word_count(self):
     """
-    Firebase:
-    Upload the word count for each URL page
+    Firebase: 
+    Upload the word count for each URL page 
     """
     try:
       for link in self.IndexService.doc_word_count:
@@ -302,8 +322,8 @@ class DatabaseService:
 
   def upload_docmap(self):
     """
-    Firebase:
-    Upload the document map -  mapping of doc_id (which is the uuid4)  to URLs
+    Firebase: 
+    Upload the document map -  mapping of doc_id (which is the uuid4)  to URLs 
     """
     try:
       for doc in self.IndexService.documents:
