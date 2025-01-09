@@ -28,3 +28,4 @@ var/
 # Virtual Environment
 venv/
 ENV/ 
+wolf.json
