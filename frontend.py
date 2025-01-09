@@ -1,8 +1,105 @@
+import ipywidgets as widgets
+from IPython.display import display, HTML
+import json
+import firebase_admin
+from firebase import firebase
+
+css = """
+<style>
+.modern-table {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 25px 0;
+    font-size: 0.9em;
+    font-family: sans-serif;
+    min-width: 400px;
+    box-shadow: 0 0 20px rgba(0, 0, 0, 0.15);
+}
+.modern-table thead tr {
+    background-color: #009879;
+    color: #ffffff;
+    text-align: left;
+}
+.modern-table th,
+.modern-table td {
+    padding: 12px 15px;
+}
+.modern-table tbody tr {
+    border-bottom: 1px solid #dddddd;
+}
+.remove-button {
+    background-color: #dc3545;
+    color: white;
+    border: none;
+    padding: 5px 10px;
+    border-radius: 3px;
+    cursor: pointer;
+    margin-right: 5px;
+}
+.edit-button {
+    background-color: #ffc107;
+    color: black;
+    border: none;
+    padding: 5px 10px;
+    border-radius: 3px;
+    cursor: pointer;
+}
+</style>
+"""
+
+js = """
+<script>
+document.getElementById('save-button').onclick = function() {
+    google.colab.kernel.invokeFunction('notebook.save_to_firebase', [], {});
+};
+
+// Function to update content within the manager container
+function updateTermContent(content) {
+    const container = document.getElementById('manager-container');
+    const existingContent = document.getElementById('term-content');
+    if (existingContent) {
+        existingContent.outerHTML = content;
+    } else {
+        container.insertAdjacentHTML('beforeend', content);
+    }
+}
+</script>
+"""
+
 def run_manager():
-    # 1. Connect to firebase
-    # 2. load index in to terms
-    # 3. fill dropbox with options (all the words which are the keys in the index)
-    # 4. let the user select a word and edit or remove links and counts.
+    # Create a container div for all manager content
+    display(HTML("""
+    <div id="manager-container">
+        <style>
+        #manager-container {
+            padding: 20px;
+        }
+        """ + css.replace('<style>', '').replace('</style>', '') + """
+        </style>
+    </div>
+    """))
+
+    # Update the JavaScript to insert content into the container
+    global js
+    js = """
+    <script>
+    document.getElementById('save-button').onclick = function() {
+        google.colab.kernel.invokeFunction('notebook.save_to_firebase', [], {});
+    };
+
+    // Function to update content within the manager container
+    function updateTermContent(content) {
+        const container = document.getElementById('manager-container');
+        const existingContent = document.getElementById('term-content');
+        if (existingContent) {
+            existingContent.outerHTML = content;
+        } else {
+            container.insertAdjacentHTML('beforeend', content);
+        }
+    }
+    </script>
+    """
+
     # Firebase connection
     FBconn = firebase.FirebaseApplication("https://wolf-db-bfac4-default-rtdb.europe-west1.firebasedatabase.app/", None)
     global terms
@@ -49,15 +146,19 @@ def run_manager():
         db = DatabaseService()
         db.restore_index()
         db.upload_index()
+        global terms
         terms = FBconn.get('/Index/', None)
-        display(HTML(f"<p style='color: green;'>Index restored successfuly!</p>"))
-        refresh_html(dropdown.value)
+        # Update dropdown options with new terms
+        dropdown.options = list(terms.keys())
+        display(HTML(f"<p style='color: green;'>Index restored successfully!</p>"))
+        # Refresh display if there's a selected value
+        if dropdown.value:
+            display_links_for_term(dropdown.value)
+        # i need a solution to show new changes(dropdown.value)
       #except Exception as e:
       # display(HTML(f"<p style='color: red;'>Failed to restore index: {e}.</p>"))
 
-    # Function to refresh the table's HTML content
-    def refresh_html(selected_word):
-        clear_output(wait=True)
+
         
         # Display add term form
         display(HTML("<h3>Add a term to index</h3>"))
@@ -105,10 +206,7 @@ def run_manager():
                 display(link_text)
                 display(count_text)
                 display(save_edit_btn)
-            else:
-                print(f"'docs' is not a dictionary. Got: {type(links)}")
-        else:
-            print(f"Unexpected data type for '{selected_word}': {type(data)}")
+
 
     # Function to remove link from a term's doc list
     def remove_link(term, link):
@@ -116,7 +214,8 @@ def run_manager():
             terms[term] = json.loads(terms[term])
             del terms[term]['DocIDs'][link]  # Remove the link locally
             terms[term] = json.dumps(terms[term])
-            refresh_html(term)  # Refresh the HTML content
+            # Now refresh the display with updated data
+            display_links_for_term(term)
         except Exception as e:
             print(f"Error while removing link: {e}")
 
@@ -150,24 +249,30 @@ def run_manager():
       del terms[selected_term]["DocIDs"][selected_link]
       terms[selected_term]["DocIDs"][link_text.value]=count_text.value
       terms[selected_term]=json.dumps(terms[selected_term])
-      refresh_html(selected_term)
+      
+      # Refresh display so updated table is shown:
+      display_links_for_term(selected_term)
 
     # Function to save the updated index back to Firebase
     def save_to_firebase():
         try:
-            FBconn.put('/', '/Index/', terms)  # Upload the updated `terms` dictionary
+            FBconn.put('/', '/Index/', terms)
             message = "<div id='message' style='color: green; font-weight: bold;'>Successfully saved to Firebase!</div>"
+            # Refresh the display after saving
+            display_links_for_term(dropdown.value)
         except Exception as e:
             message = f"<div id='message' style='color: red; font-weight: bold;'>Error: {e}</div>"
         display(HTML(message))
-        refresh_html(dropdown.value)
+        # i need a solution to show new changes(dropdown.value)
 
     # Function to handle word selection
     def on_word_select(change):
         global selected_term
         selected_word = change['new']
-        selcted_term = change['new']
-        refresh_html(selected_word)
+        selected_term = change['new']
+        if selected_term:  # Only if something is selected
+            display_links_for_term(selected_term)
+        # i need a solution to show new changes(selected_word)
 
     # Add new form components for adding terms
     new_term_text = widgets.Text(
@@ -238,8 +343,11 @@ def run_manager():
             new_count_text.value = 1
             
             # Refresh display
-            refresh_html(dropdown.value)
+            # i need a solution to show new changes(dropdown.value)
             display(HTML("<p style='color: green;'>Term added successfully!</p>"))
+            
+            # Refresh the display for the newly created / updated term
+            display_links_for_term(new_term)
             
         except Exception as e:
             display(HTML(f"<p style='color: red;'>Error adding term: {e}</p>"))
@@ -258,5 +366,81 @@ def run_manager():
     dropdown.observe(on_word_select, names='value')
 
     # Display the dropdown
-    refresh_html(dropdown.value)
+    # i need a solution to show new changes(dropdown.value)
     selected_term=dropdown.value
+
+    # 1) A new helper function that displays the links & table for a selected term.
+    def display_links_for_term(term):
+        if not terms:
+            display(HTML("<p style='color: red;'>No terms found in the database.</p>"))
+            return
+        if term not in terms:
+            display(HTML(f"<p style='color: red;'>Term '{term}' not found in the database.</p>"))
+            return
+
+        data = terms[term]
+        data = json.loads(data)
+
+        html_content = """
+        <div id="term-content">
+            <h3>Edit existing term: {}</h3>
+        """.format(term)
+
+        if isinstance(data, dict):
+            links = data.get('DocIDs', {})
+            if isinstance(links, dict):
+                html_content += "<table class='modern-table'>"
+                html_content += "<thead><tr><th>Link</th><th>Count</th><th>Actions</th></tr></thead>"
+                html_content += "<tbody>"
+                for link, count in links.items():
+                    html_content += "<tr>"
+                    html_content += f"<td><a href='{link}' target='_blank' style='text-decoration: none; color: #007BFF;'>{link}</a></td>"
+                    html_content += f"<td>{count}</td>"
+                    html_content += "<td>"
+                    html_content += f"<button onclick='google.colab.kernel.invokeFunction(\"notebook.remove_link\", [\"{term}\", \"{link}\"], {{}})' class='remove-button'>Remove</button> "
+                    html_content += f"<button onclick='google.colab.kernel.invokeFunction(\"notebook.edit_link\", [\"{term}\", \"{link}\",\"{count}\"], {{}})' class='edit-button'>Edit</button>"
+                    html_content += "</td>"
+                    html_content += "</tr>"
+                html_content += "</tbody></table>"
+
+                html_content += "<br><button id='save-button' style='background-color: #28A745; color: white; border: none; border-radius: 5px; padding: 10px 20px; cursor: pointer;'>Save Index</button>"
+                html_content += "<p>Uploads index to database.</p>"
+
+        html_content += "</div>"
+
+        # Update JavaScript to include content replacement
+        js_with_update = js + """
+        <script>
+            // Update the content
+            updateTermContent(`""" + html_content.replace("`", "\\`") + """`)
+        </script>
+        """
+
+        # Display the content with update script
+        display(HTML(js_with_update))
+
+        # Display widgets once
+        if not hasattr(display_links_for_term, 'widgets_displayed'):
+            term_label.disabled = True
+            link_text.disabled = True
+            count_text.disabled = True
+            save_edit_btn.disabled = True
+            display(term_label)
+            display(link_text)
+            display(count_text)
+            display(save_edit_btn)
+            display_links_for_term.widgets_displayed = True
+
+    # Display initial UI elements
+    display(HTML("<h3>Add a term to index</h3>"))
+    display(new_term_text)
+    display(new_link_text)
+    display(new_count_text)
+    display(add_term_btn)
+    
+    display(HTML("<h3>Edit existing terms</h3>"))
+    display(dropdown)
+    
+    # Display initial content for the selected term
+    if dropdown.value:
+        display_links_for_term(dropdown.value)
