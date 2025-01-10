@@ -313,11 +313,13 @@ def run_manager():
             return
             
         try:
-            # If term exists, update its DocIDs
+            # If term exists, add new link and count
             if new_term in terms:
                 term_data = json.loads(terms[new_term])
                 term_data['DocIDs'][new_link] = new_count
                 terms[new_term] = json.dumps(term_data)
+                # update total count
+                terms[new_term]["count"]+=new_count
                
             else:
                 # Create new term entry
@@ -327,10 +329,10 @@ def run_manager():
                     "DocIDs": {
                         new_link: new_count
                     }
-                    
-
                 }
                 terms[new_term] = json.dumps(new_term_data)
+                # update total count
+                
                 
             # Update dropdown options
             dropdown.options = list(terms.keys())
