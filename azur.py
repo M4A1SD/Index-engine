@@ -52,7 +52,23 @@ class AzureSearchEngine:
     self.base_url = "https://azure.microsoft.com"
     self.pages = []
     self.word_locations = defaultdict(list)  # word -> [(page_id, frequency), ...]
-    self.stop_words = {'a', 'an', 'the', 'and', 'or', 'in', 'on', 'at', 'to', 'for', 'of', 'with'}
+    self.stop_words = {
+        'a', 'an', 'the', 'and', 'or', 'in', 'on', 'at', 'to', 'for', 'of', 'with',
+        'is', 'it', 'that', 'this', 'as', 'by', 'but', 'if', 'not', 'are', 'was',
+        'were', 'be', 'been', 'has', 'have', 'had', 'do', 'does', 'did', 'from',
+        'can', 'could', 'would', 'should', 'will', 'shall', 'may', 'might', 'about',
+        'into', 'over', 'under', 'than', 'then', 'there', 'here', 'he', 'she', 'they',
+        'we', 'you', 'I', 'me', 'my', 'mine', 'your', 'yours', 'his', 'her', 'their',
+        'our', 'its', 'who', 'whom', 'which', 'what', 'where', 'when', 'why', 'how',
+        'while', 'because', 'since', 'although', 'though', 'so', 'such', 'some',
+        'any', 'both', 'few', 'more', 'most', 'many', 'each', 'every', 'either',
+        'neither', 'no', 'nor', 'only', 'own', 'same', 'very', 'just', 'too', 'also',
+        'still', 'well', 'much', 'less', 'now', 'always', 'often', 'sometimes', 'never',
+        'without', 'within', 'between', 'against', 'again', 'during', 'before', 'after',
+        'up', 'down', 'out', 'off', 'through', 'into', 'over', 'above', 'below',
+        'to', 'from', 'about', 'because', 'until', 'including', 'across', 'around',
+        'outside', 'inside', 'near', 'besides', 'since', 'whether', 'like', 'unlike'
+    }
     self.robots_checker = RobotsChecker(self.base_url)
     self.stemmer=PorterStemmer()
 
